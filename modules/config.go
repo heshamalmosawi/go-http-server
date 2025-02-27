@@ -22,7 +22,6 @@ type RouteConfig struct {
 	Methods          []string `json:"methods,omitempty"`
 	Redirect         string   `json:"redirect,omitempty"`
 	DefaultFile      string   `json:"default_file,omitempty"`
-	CGIExtensions    []string `json:"cgi_extensions,omitempty"`
 	DirectoryListing bool     `json:"directory_listing,omitempty"`
 	ClientBodyLimit  uint     `json:"client_body_limit,omitempty"`
 }

@@ -19,12 +19,6 @@
         "default_file": "static/index.html",
         "root": "static"
       },
-      "/cgi-bin": {
-        "cgi_extensions": [
-          "py",
-          "php"
-        ]
-      },
       "/dir": {
         "directory_listing": true,
         "root": "static/dir"

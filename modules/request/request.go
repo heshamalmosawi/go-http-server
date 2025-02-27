@@ -91,3 +91,20 @@ func From(conn net.Conn) (Request, error) {
 
 	return req, nil
 }
+
+// utility method to get cookies of a request as a map
+func (r Request) GetCookies() (map[string]string, error) {
+	cookies := map[string]string{}
+
+	if cookiesHeader, ok := r.Headers["Cookie"]; ok {
+		for _, cookie := range strings.Split(cookiesHeader, ";") {
+			if key, value, flag := strings.Cut(cookie, "="); flag {
+				cookies[key] = value
+			}
+		}
+	} else {
+		return nil, errors.New("cookies not found")
+	}
+
+	return cookies, nil
+}
