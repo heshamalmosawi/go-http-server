@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTTP/1.1 Feature Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ccc;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            min-height: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error { color: #ff0000; }
+        .success { color: #008000; }
+        .cookie-value {
+            padding: 5px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <h1>HTTP/1.1 Feature Test Page</h1>
+
+    <div class="test-section">
+        <h2>1. HTTP Methods Test</h2>
+        <p>Tests different HTTP methods and their status codes</p>
+        <button onclick="testMethod('GET')">Test GET</button>
+        <button onclick="testMethod('POST')">Test POST</button>
+        <button onclick="testMethod('DELETE')">Test DELETE</button>
+        <button onclick="testMethod('INVALID')">Test Invalid Method</button>
+        <div id="methodResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. File Upload Test</h2>
+        <p>Upload a file and verify its integrity after download</p>
+        <input type="file" id="fileInput" />
+        <button onclick="testFileUpload()">Upload & Verify</button>
+        <div id="uploadResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Cookie & Session Test</h2>
+        <p>Tests cookie handling and session management</p>
+        <button onclick="testCookies()">Test Cookies</button>
+        <button onclick="testSession()">Test Session</button>
+        <div id="cookieResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Status Codes Test</h2>
+        <p>Tests various HTTP status codes</p>
+        <button onclick="test404()">Test 404</button>
+        <button onclick="test403()">Test 403</button>
+        <button onclick="test500()">Test 500</button>
+        <div id="statusResult" class="result"></div>
+    </div>
+
+    <script>
+        async function testMethod(method) {
+            const result = document.getElementById('methodResult');
+            result.innerHTML = `Testing ${method} request...`;
+            
+            try {
+                const response = await fetch('/test-method', {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: method !== 'GET' ? JSON.stringify({test: 'data'}) : undefined
+                });
+                
+                result.innerHTML = `${method} Request:\n`;
+                result.innerHTML += `Status: ${response.status} ${response.statusText}\n`;
+                const data = await response.text();
+                result.innerHTML += `Response: ${data}\n`;
+                result.className = 'result ' + (response.ok ? 'success' : 'error');
+            } catch (error) {
+                result.innerHTML = `Error: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+
+        async function testFileUpload() {
+            const result = document.getElementById('uploadResult');
+            const fileInput = document.getElementById('fileInput');
+            
+            if (!fileInput.files.length) {
+                result.innerHTML = 'Please select a file first';
+                result.className = 'result error';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                // Upload
+                result.innerHTML = 'Uploading file...';
+                const uploadResponse = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error(`Upload failed: ${uploadResponse.status}`);
+                }
+
+                const uploadData = await uploadResponse.json();
+                
+                // Download and verify
+                result.innerHTML += '\nDownloading file for verification...';
+                const downloadResponse = await fetch(`/download/${uploadData.filename}`);
+                const downloadedBlob = await downloadResponse.blob();
+                
+                // Compare files
+                const originalBuffer = await file.arrayBuffer();
+                const downloadedBuffer = await downloadedBlob.arrayBuffer();
+                const originalArray = new Uint8Array(originalBuffer);
+                const downloadedArray = new Uint8Array(downloadedBuffer);
+                
+                const identical = originalArray.length === downloadedArray.length &&
+                    originalArray.every((byte, i) => byte === downloadedArray[i]);
+
+                result.innerHTML = `File Upload Test:\n`;
+                result.innerHTML += `Original Size: ${file.size} bytes\n`;
+                result.innerHTML += `Downloaded Size: ${downloadedBlob.size} bytes\n`;
+                result.innerHTML += `Integrity Check: ${identical ? 'PASSED ✓' : 'FAILED ✗'}`;
+                result.className = 'result ' + (identical ? 'success' : 'error');
+            } catch (error) {
+                result.innerHTML = `Error: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+
+        async function testCookies() {
+            const result = document.getElementById('cookieResult');
+            result.innerHTML = 'Testing cookies...';
+            
+            try {
+                const response = await fetch('/test-cookies', {
+                    credentials: 'include'  // Include cookies in request
+                });
+                
+                const data = await response.json();
+                result.innerHTML = 'Cookie Test:\n';
+                result.innerHTML += `Server Set Cookie: ${response.headers.get('set-cookie')}\n`;
+                result.innerHTML += `Current Cookies: ${document.cookie}\n`;
+                result.innerHTML += `Server Response: ${JSON.stringify(data, null, 2)}`;
+                result.className = 'result success';
+            } catch (error) {
+                result.innerHTML = `Error: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+
+        async function testSession() {
+            const result = document.getElementById('cookieResult');
+            result.innerHTML = 'Testing session...';
+            
+            try {
+                // First request to start session
+                const resp1 = await fetch('/test-session', {
+                    credentials: 'include'
+                });
+                const data1 = await resp1.json();
+                
+                // Second request to verify session
+                const resp2 = await fetch('/test-session', {
+                    credentials: 'include'
+                });
+                const data2 = await resp2.json();
+                
+                result.innerHTML = 'Session Test:\n';
+                result.innerHTML += `First Request: ${JSON.stringify(data1, null, 2)}\n`;
+                result.innerHTML += `Second Request: ${JSON.stringify(data2, null, 2)}`;
+                result.className = 'result ' + (data1.sessionId === data2.sessionId ? 'success' : 'error');
+            } catch (error) {
+                result.innerHTML = `Error: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+        
+        async function test404() {
+            const result = document.getElementById('statusResult');
+            try {
+                const response = await fetch('/non-existent-path');
+                const text = await response.text();
+                result.innerHTML = `404 Test:\nStatus: ${response.status}\nResponse: ${text}`;
+                result.className = 'result ' + (response.status === 404 ? 'success' : 'error');
+            } catch (error) {
+                result.innerHTML = `Error: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+
+        async function test403() {
+            const result = document.getElementById('statusResult');
+            try {
+                const response = await fetch('/test-forbidden');
+                const text = await response.text();
+                result.innerHTML = `403 Test:\nStatus: ${response.status}\nResponse: ${text}`;
+                result.className = 'result ' + (response.status === 403 ? 'success' : 'error');
+            } catch (error) {
+                result.innerHTML = `Error: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+
+        async function test500() {
+            const result = document.getElementById('statusResult');
+            try {
+                const response = await fetch('/test-error');
+                const text = await response.text();
+                result.innerHTML = `500 Test:\nStatus: ${response.status}\nResponse: ${text}`;
+                result.className = 'result ' + (response.status === 500 ? 'success' : 'error');
+            } catch (error) {
+                result.innerHTML = `Error: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+    </script>
+</body>
+</html>
